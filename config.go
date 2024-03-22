@@ -204,10 +204,12 @@ type WriterConfig struct {
 	ColumnPageBuffers    BufferPool
 	ColumnIndexSizeLimit int
 	PageBufferSize       int
+	PageBufferSizes      []int
 	WriteBufferSize      int
 	DataPageVersion      int
 	DataPageStatistics   bool
 	MaxRowsPerRowGroup   int64
+	DirectByteArrayWrites bool
 	KeyValueMetadata     map[string]string
 	Schema               *Schema
 	BloomFilters         []BloomFilterColumn
@@ -498,6 +500,10 @@ func PageBufferSize(size int) WriterOption {
 	return writerOption(func(config *WriterConfig) { config.PageBufferSize = size })
 }
 
+func PageBufferSizes(sizes []int) WriterOption {
+	return writerOption(func(config *WriterConfig) { config.PageBufferSizes = sizes })
+}
+
 // WriteBufferSize configures the size of the write buffer.
 //
 // Setting the writer buffer size to zero deactivates buffering, all writes are
@@ -670,6 +676,10 @@ func SortingBuffers(buffers BufferPool) SortingOption {
 // Defaults to false
 func DropDuplicatedRows(drop bool) SortingOption {
 	return sortingOption(func(config *SortingConfig) { config.DropDuplicatedRows = drop })
+}
+
+func DirectByteArrayWrites(v bool) WriterOption {
+	return writerOption(func(config *WriterConfig) { config.DirectByteArrayWrites = v })
 }
 
 type fileOption func(*FileConfig)

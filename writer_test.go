@@ -2,6 +2,7 @@ package parquet_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1117,6 +1118,47 @@ func TestWriterMaxRowsPerRowGroup(t *testing.T) {
 	if len(rowGroups) != 10 {
 		t.Errorf("wrong number of row groups in parquet file: want=10 got=%d", len(rowGroups))
 	}
+}
+
+type testData struct {
+	Foo int32  `parquet:"foo"`
+	Bar []byte `parquet:"bar,plain"`
+}
+
+func TestWriterConcurrentRowGroupWriter(t *testing.T) {
+	output := new(bytes.Buffer)
+	writer := parquet.NewWriter(output, parquet.SchemaOf(&testData{}), parquet.DirectByteArrayWrites(true))
+
+	rg1, err := writer.BeginRowGroup()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c1Writer := rg1.ColumnBuffer(0).(parquet.Int32Writer)
+	c2Writer := rg1.ColumnBuffer(1).(parquet.ByteArrayWriter)
+
+	buf := make([]byte, 1024)
+	for i := range buf {
+		buf[i] = byte(i % 256)
+	}
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(len(buf)-4))
+
+	for i := 0; i < 1000; i++ {
+		c1Writer.WriteInt32s([]int32{int32(i)})
+		c2Writer.WriteByteArrays(buf)
+		rg1.MaybeFlushColumnBuffers()
+	}
+
+	writer.CommitRowGroup(rg1)
+
+	writer.Close()
+
+	rows, err := parquet.Read[testData](bytes.NewReader(output.Bytes()), int64(output.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(len(rows))
+	fmt.Println(len(rows[0].Bar), rows[0].Bar[0:8])
 }
 
 func TestSetKeyValueMetadata(t *testing.T) {

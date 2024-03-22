@@ -7,6 +7,7 @@ import (
 
 	"github.com/parquet-go/parquet-go/deprecated"
 	"github.com/parquet-go/parquet-go/encoding"
+	"github.com/parquet-go/parquet-go/format"
 	"github.com/parquet-go/parquet-go/internal/bitpack"
 	"github.com/parquet-go/parquet-go/internal/debug"
 )
@@ -82,6 +83,10 @@ type Page interface {
 	// multiple calls to this method, applications must treat the content as
 	// immutable.
 	Data() encoding.Values
+}
+
+type EncodedPage interface {
+	Encoding() format.Encoding
 }
 
 // PageReader is an interface implemented by types that support producing a
@@ -935,6 +940,30 @@ func (page *doublePage) makeValue(v float64) Value {
 	value := makeValueDouble(v)
 	value.columnIndex = page.columnIndex
 	return value
+}
+
+type plainByteArrayPage struct {
+	byteArrayPage
+}
+
+func newPlainByteArrayPage(typ Type, columnIndex int16, numValues int32, values encoding.Values) *plainByteArrayPage {
+	data, offsets := values.ByteArray()
+	return &plainByteArrayPage{
+		byteArrayPage: byteArrayPage{
+			typ:         typ,
+			values:      data,
+			offsets:     offsets[:numValues+1],
+			columnIndex: ^columnIndex,
+		},
+	}
+}
+
+func (page *plainByteArrayPage) Encoding() format.Encoding { return format.Plain }
+
+func (page *plainByteArrayPage) Slice(i, j int64) Page {
+	return &plainByteArrayPage{
+		byteArrayPage: *page.byteArrayPage.Slice(i, j).(*byteArrayPage),
+	}
 }
 
 type byteArrayPage struct {
