@@ -522,6 +522,14 @@ func (w *ConcurrentRowGroupWriter) TotalCompressedSize() int64 {
 	return total
 }
 
+func (w *ConcurrentRowGroupWriter) TotalUncompressedSize() int64 {
+	total := int64(0)
+	for _, c := range w.rowGroup.columns {
+		total += c.columnChunk.MetaData.TotalUncompressedSize
+	}
+	return total
+}
+
 type writerRowGroup struct {
 	config  *WriterConfig
 	columns []*writerColumn
