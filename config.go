@@ -591,7 +591,7 @@ func DataPageStatistics(enabled bool) WriterOption {
 // metadata.
 //
 // Defaults to false so writing the byte array min and max statistics is enabled.
-func DIsableByteArrayMinMaxStatistics(enabled bool) WriterOption {
+func DisableByteArrayMinMaxStatistics(enabled bool) WriterOption {
 	return writerOption(func(config *WriterConfig) { config.DisableByteArrayMinMaxStatistics = enabled })
 }
 

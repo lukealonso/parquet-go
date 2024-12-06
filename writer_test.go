@@ -1262,7 +1262,7 @@ func TestByteArrayStatistics(t *testing.T) {
 		buffer,
 		schema,
 		parquet.DataPageStatistics(true),
-		parquet.DIsableByteArrayMinMaxStatistics(true),
+		parquet.DisableByteArrayMinMaxStatistics(true),
 	)
 
 	expectedMinTs := uint64(12345)
