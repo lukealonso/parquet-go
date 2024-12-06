@@ -19,17 +19,17 @@ const (
 )
 
 const (
-	DefaultColumnIndexSizeLimit            = 16
-	DefaultColumnBufferCapacity            = 16 * 1024
-	DefaultPageBufferSize                  = 256 * 1024
-	DefaultWriteBufferSize                 = 32 * 1024
-	DefaultDataPageVersion                 = 2
-	DefaultDataPageStatistics              = false
-	DefaultEnableByteArrayMinMaxStatistics = false
-	DefaultSkipPageIndex                   = false
-	DefaultSkipBloomFilters                = false
-	DefaultMaxRowsPerRowGroup              = math.MaxInt64
-	DefaultReadMode                        = ReadModeSync
+	DefaultColumnIndexSizeLimit             = 16
+	DefaultColumnBufferCapacity             = 16 * 1024
+	DefaultPageBufferSize                   = 256 * 1024
+	DefaultWriteBufferSize                  = 32 * 1024
+	DefaultDataPageVersion                  = 2
+	DefaultDataPageStatistics               = false
+	DefaultDisableByteArrayMinMaxStatistics = false
+	DefaultSkipPageIndex                    = false
+	DefaultSkipBloomFilters                 = false
+	DefaultMaxRowsPerRowGroup               = math.MaxInt64
+	DefaultReadMode                         = ReadModeSync
 )
 
 const (
@@ -201,37 +201,37 @@ func (c *ReaderConfig) Validate() error {
 //		CreatedBy: "my test program",
 //	})
 type WriterConfig struct {
-	CreatedBy                       string
-	ColumnPageBuffers               BufferPool
-	ColumnIndexSizeLimit            int
-	PageBufferSize                  int
-	PageBufferSizes                 []int
-	WriteBufferSize                 int
-	DataPageVersion                 int
-	DataPageStatistics              bool
-	EnableByteArrayMinMaxStatistics bool
-	MaxRowsPerRowGroup              int64
-	DirectByteArrayWrites           bool
-	KeyValueMetadata                map[string]string
-	Schema                          *Schema
-	BloomFilters                    []BloomFilterColumn
-	Compression                     compress.Codec
-	Sorting                         SortingConfig
+	CreatedBy                        string
+	ColumnPageBuffers                BufferPool
+	ColumnIndexSizeLimit             int
+	PageBufferSize                   int
+	PageBufferSizes                  []int
+	WriteBufferSize                  int
+	DataPageVersion                  int
+	DataPageStatistics               bool
+	DisableByteArrayMinMaxStatistics bool
+	MaxRowsPerRowGroup               int64
+	DirectByteArrayWrites            bool
+	KeyValueMetadata                 map[string]string
+	Schema                           *Schema
+	BloomFilters                     []BloomFilterColumn
+	Compression                      compress.Codec
+	Sorting                          SortingConfig
 }
 
 // DefaultWriterConfig returns a new WriterConfig value initialized with the
 // default writer configuration.
 func DefaultWriterConfig() *WriterConfig {
 	return &WriterConfig{
-		CreatedBy:                       defaultCreatedBy(),
-		ColumnPageBuffers:               &defaultColumnBufferPool,
-		ColumnIndexSizeLimit:            DefaultColumnIndexSizeLimit,
-		PageBufferSize:                  DefaultPageBufferSize,
-		WriteBufferSize:                 DefaultWriteBufferSize,
-		DataPageVersion:                 DefaultDataPageVersion,
-		DataPageStatistics:              DefaultDataPageStatistics,
-		EnableByteArrayMinMaxStatistics: DefaultEnableByteArrayMinMaxStatistics,
-		MaxRowsPerRowGroup:              DefaultMaxRowsPerRowGroup,
+		CreatedBy:                        defaultCreatedBy(),
+		ColumnPageBuffers:                &defaultColumnBufferPool,
+		ColumnIndexSizeLimit:             DefaultColumnIndexSizeLimit,
+		PageBufferSize:                   DefaultPageBufferSize,
+		WriteBufferSize:                  DefaultWriteBufferSize,
+		DataPageVersion:                  DefaultDataPageVersion,
+		DataPageStatistics:               DefaultDataPageStatistics,
+		DisableByteArrayMinMaxStatistics: DefaultDisableByteArrayMinMaxStatistics,
+		MaxRowsPerRowGroup:               DefaultMaxRowsPerRowGroup,
 		Sorting: SortingConfig{
 			SortingBuffers: &defaultSortingBufferPool,
 		},
@@ -269,20 +269,20 @@ func (c *WriterConfig) ConfigureWriter(config *WriterConfig) {
 	}
 
 	*config = WriterConfig{
-		CreatedBy:                       coalesceString(c.CreatedBy, config.CreatedBy),
-		ColumnPageBuffers:               coalesceBufferPool(c.ColumnPageBuffers, config.ColumnPageBuffers),
-		ColumnIndexSizeLimit:            coalesceInt(c.ColumnIndexSizeLimit, config.ColumnIndexSizeLimit),
-		PageBufferSize:                  coalesceInt(c.PageBufferSize, config.PageBufferSize),
-		WriteBufferSize:                 coalesceInt(c.WriteBufferSize, config.WriteBufferSize),
-		DataPageVersion:                 coalesceInt(c.DataPageVersion, config.DataPageVersion),
-		DataPageStatistics:              config.DataPageStatistics,
-		EnableByteArrayMinMaxStatistics: config.EnableByteArrayMinMaxStatistics,
-		MaxRowsPerRowGroup:              config.MaxRowsPerRowGroup,
-		KeyValueMetadata:                keyValueMetadata,
-		Schema:                          coalesceSchema(c.Schema, config.Schema),
-		BloomFilters:                    coalesceBloomFilters(c.BloomFilters, config.BloomFilters),
-		Compression:                     coalesceCompression(c.Compression, config.Compression),
-		Sorting:                         coalesceSortingConfig(c.Sorting, config.Sorting),
+		CreatedBy:                        coalesceString(c.CreatedBy, config.CreatedBy),
+		ColumnPageBuffers:                coalesceBufferPool(c.ColumnPageBuffers, config.ColumnPageBuffers),
+		ColumnIndexSizeLimit:             coalesceInt(c.ColumnIndexSizeLimit, config.ColumnIndexSizeLimit),
+		PageBufferSize:                   coalesceInt(c.PageBufferSize, config.PageBufferSize),
+		WriteBufferSize:                  coalesceInt(c.WriteBufferSize, config.WriteBufferSize),
+		DataPageVersion:                  coalesceInt(c.DataPageVersion, config.DataPageVersion),
+		DataPageStatistics:               config.DataPageStatistics,
+		DisableByteArrayMinMaxStatistics: config.DisableByteArrayMinMaxStatistics,
+		MaxRowsPerRowGroup:               config.MaxRowsPerRowGroup,
+		KeyValueMetadata:                 keyValueMetadata,
+		Schema:                           coalesceSchema(c.Schema, config.Schema),
+		BloomFilters:                     coalesceBloomFilters(c.BloomFilters, config.BloomFilters),
+		Compression:                      coalesceCompression(c.Compression, config.Compression),
+		Sorting:                          coalesceSortingConfig(c.Sorting, config.Sorting),
 	}
 }
 
@@ -585,14 +585,14 @@ func DataPageStatistics(enabled bool) WriterOption {
 	return writerOption(func(config *WriterConfig) { config.DataPageStatistics = enabled })
 }
 
-// EnableByteArrayMinMaxStatistics creates a configuration option which defines whether
+// DisableByteArrayMinMaxStatistics creates a configuration option which defines whether
 // the min and max statistics for byte array type is recorded. Byte array usually records
 // raw data and sotring the min and max statistics will create a large overhead in the
 // metadata.
 //
-// Defaults to false.
-func EnableByteArrayMinMaxStatistics(enabled bool) WriterOption {
-	return writerOption(func(config *WriterConfig) { config.EnableByteArrayMinMaxStatistics = enabled })
+// Defaults to false so writing the byte array min and max statistics is enabled.
+func DIsableByteArrayMinMaxStatistics(enabled bool) WriterOption {
+	return writerOption(func(config *WriterConfig) { config.DisableByteArrayMinMaxStatistics = enabled })
 }
 
 // KeyValueMetadata creates a configuration option which adds key/value metadata

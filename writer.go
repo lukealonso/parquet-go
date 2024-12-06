@@ -600,7 +600,7 @@ func newWriterRowGroup(config *WriterConfig) *writerRowGroup {
 			bufferIndex:        int32(leaf.columnIndex),
 			bufferSize:         int32(float64(pbs) * 0.98),
 			writePageStats:     config.DataPageStatistics,
-			writeMinMaxStats:   columnType != ByteArrayType || config.EnableByteArrayMinMaxStatistics,
+			writeMinMaxStats:   columnType != ByteArrayType || (columnType == ByteArrayType && !config.DisableByteArrayMinMaxStatistics),
 			encodings:          make([]format.Encoding, 0, 3),
 			// Data pages in version 2 can omit compression when dictionary
 			// encoding is employed; only the dictionary page needs to be

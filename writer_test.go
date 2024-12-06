@@ -1251,29 +1251,32 @@ func TestByteArrayStatistics(t *testing.T) {
 	type record struct {
 		Timestamp uint64 `parquet:"timestamp"`
 		Data      []byte `parquet:"data"`
+		Value     string `parquet:"value"`
 	}
 
 	schema := parquet.SchemaOf(&record{})
 
-	// case 1: default, does not write byte array min/max values
+	// case 1: force to not write byte array min/max values
 	buffer := bytes.NewBuffer(nil)
 	w := parquet.NewWriter(
 		buffer,
 		schema,
 		parquet.DataPageStatistics(true),
+		parquet.DIsableByteArrayMinMaxStatistics(true),
 	)
 
 	expectedMinTs := uint64(12345)
 	expectedMaxTs := uint64(23456)
 	expectedMinData := []byte{0, 0, 1}
 	expectedMaxData := []byte{0, 0, 2}
+	expectedValue := "TEST STRING"
 	var expectedEmptyData []byte
 
-	err := w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData})
+	err := w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData, Value: expectedValue})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData})
+	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData, Value: expectedValue})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1296,22 +1299,25 @@ func TestByteArrayStatistics(t *testing.T) {
 		data := rg.Columns[1]
 		assert.Equal(t, expectedEmptyData, data.MetaData.Statistics.MinValue)
 		assert.Equal(t, expectedEmptyData, data.MetaData.Statistics.MaxValue)
+
+		value := rg.Columns[2]
+		assert.Equal(t, expectedValue, string(value.MetaData.Statistics.MinValue))
+		assert.Equal(t, expectedValue, string(value.MetaData.Statistics.MaxValue))
 	}
 
-	// case 2: force min/max value for byte array
+	// case 2: write min/max value for byte array, this is the default behavior
 	buffer = bytes.NewBuffer(nil)
 	w = parquet.NewWriter(
 		buffer,
 		schema,
 		parquet.DataPageStatistics(true),
-		parquet.EnableByteArrayMinMaxStatistics(true),
 	)
 
-	err = w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData})
+	err = w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData, Value: expectedValue})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData})
+	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData, Value: expectedValue})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1334,5 +1340,9 @@ func TestByteArrayStatistics(t *testing.T) {
 		data := rg.Columns[1]
 		assert.Equal(t, expectedMinData, data.MetaData.Statistics.MinValue)
 		assert.Equal(t, expectedMaxData, data.MetaData.Statistics.MaxValue)
+
+		value := rg.Columns[2]
+		assert.Equal(t, expectedValue, string(value.MetaData.Statistics.MinValue))
+		assert.Equal(t, expectedValue, string(value.MetaData.Statistics.MaxValue))
 	}
 }
