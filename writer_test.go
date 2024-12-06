@@ -16,6 +16,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/parquet-go/parquet-go"
 	"github.com/parquet-go/parquet-go/compress"
@@ -1243,5 +1244,95 @@ func TestSetKeyValueMetadataOverwritesExisting(t *testing.T) {
 	}
 	if value != testValue {
 		t.Errorf("expected %q, got %q", testValue, value)
+	}
+}
+
+func TestByteArrayStatistics(t *testing.T) {
+	type record struct {
+		Timestamp uint64 `parquet:"timestamp"`
+		Data      []byte `parquet:"data"`
+	}
+
+	schema := parquet.SchemaOf(&record{})
+
+	// case 1: default, does not write byte array min/max values
+	buffer := bytes.NewBuffer(nil)
+	w := parquet.NewWriter(
+		buffer,
+		schema,
+		parquet.DataPageStatistics(true),
+	)
+
+	expectedMinTs := uint64(12345)
+	expectedMaxTs := uint64(23456)
+	expectedMinData := []byte{0, 0, 1}
+	expectedMaxData := []byte{0, 0, 2}
+	var expectedEmptyData []byte
+
+	err := w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parquet.OpenFile(bytes.NewReader(buffer.Bytes()), int64(buffer.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rg := range f.Metadata().RowGroups {
+		timestamp := rg.Columns[0]
+		assert.Equal(t, expectedMinTs, binary.LittleEndian.Uint64(timestamp.MetaData.Statistics.MinValue))
+		assert.Equal(t, expectedMaxTs, binary.LittleEndian.Uint64(timestamp.MetaData.Statistics.MaxValue))
+
+		data := rg.Columns[1]
+		assert.Equal(t, expectedEmptyData, data.MetaData.Statistics.MinValue)
+		assert.Equal(t, expectedEmptyData, data.MetaData.Statistics.MaxValue)
+	}
+
+	// case 2: force min/max value for byte array
+	buffer = bytes.NewBuffer(nil)
+	w = parquet.NewWriter(
+		buffer,
+		schema,
+		parquet.DataPageStatistics(true),
+		parquet.EnableByteArrayMinMaxStatistics(true),
+	)
+
+	err = w.Write(&record{Timestamp: expectedMinTs, Data: expectedMinData})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = w.Write(&record{Timestamp: expectedMaxTs, Data: expectedMaxData})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = parquet.OpenFile(bytes.NewReader(buffer.Bytes()), int64(buffer.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rg := range f.Metadata().RowGroups {
+		timestamp := rg.Columns[0]
+		assert.Equal(t, expectedMinTs, binary.LittleEndian.Uint64(timestamp.MetaData.Statistics.MinValue))
+		assert.Equal(t, expectedMaxTs, binary.LittleEndian.Uint64(timestamp.MetaData.Statistics.MaxValue))
+
+		data := rg.Columns[1]
+		assert.Equal(t, expectedMinData, data.MetaData.Statistics.MinValue)
+		assert.Equal(t, expectedMaxData, data.MetaData.Statistics.MaxValue)
 	}
 }
