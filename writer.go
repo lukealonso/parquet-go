@@ -600,6 +600,7 @@ func newWriterRowGroup(config *WriterConfig) *writerRowGroup {
 			bufferIndex:        int32(leaf.columnIndex),
 			bufferSize:         int32(float64(pbs) * 0.98),
 			writePageStats:     config.DataPageStatistics,
+			writeMinMaxStats:   columnType != ByteArrayType || (columnType == ByteArrayType && !config.DisableByteArrayMinMaxStatistics),
 			encodings:          make([]format.Encoding, 0, 3),
 			// Data pages in version 2 can omit compression when dictionary
 			// encoding is employed; only the dictionary page needs to be
@@ -1263,13 +1264,14 @@ type writerColumn struct {
 		encoder  thrift.Encoder
 	}
 
-	filter         []byte
-	numRows        int64
-	bufferIndex    int32
-	bufferSize     int32
-	writePageStats bool
-	isCompressed   bool
-	encodings      []format.Encoding
+	filter           []byte
+	numRows          int64
+	bufferIndex      int32
+	bufferSize       int32
+	writePageStats   bool
+	writeMinMaxStats bool
+	isCompressed     bool
+	encodings        []format.Encoding
 
 	columnChunk *format.ColumnChunk
 	offsetIndex *format.OffsetIndex
@@ -1681,9 +1683,15 @@ func (c *writerColumn) writePageTo(size int64, writeTo func(io.Writer) (int64, e
 
 func (c *writerColumn) makePageStatistics(page Page) format.Statistics {
 	numNulls := page.NumNulls()
-	minValue, maxValue, _ := page.Bounds()
-	minValueBytes := minValue.Bytes()
-	maxValueBytes := maxValue.Bytes()
+
+	var minValueBytes, maxValueBytes []byte
+
+	if c.writeMinMaxStats {
+		minValue, maxValue, _ := page.Bounds()
+		minValueBytes = minValue.Bytes()
+		maxValueBytes = maxValue.Bytes()
+	}
+
 	return format.Statistics{
 		Min:       minValueBytes, // deprecated
 		Max:       maxValueBytes, // deprecated
@@ -1700,7 +1708,12 @@ func (c *writerColumn) recordPageStats(headerSize int32, header *format.PageHead
 	if page != nil {
 		numNulls := page.NumNulls()
 		numValues := page.NumValues()
-		minValue, maxValue, pageHasBounds := page.Bounds()
+
+		var minValue, maxValue Value
+		var pageHasBounds bool
+		if c.writeMinMaxStats {
+			minValue, maxValue, pageHasBounds = page.Bounds()
+		}
 		c.columnIndex.IndexPage(numValues, numNulls, minValue, maxValue)
 		c.columnChunk.MetaData.NumValues += numValues
 		c.columnChunk.MetaData.Statistics.NullCount += numNulls
